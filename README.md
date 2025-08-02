@@ -2,6 +2,14 @@
 
 A modern FTP/SFTP client for Linux with an integrated terminal, inspired by WinSCP.
 
+## Screenshots
+
+![Linux FTP Client - Main Interface](screenshots/ftp1.png)
+*Dual-pane file browser with local and remote file management*
+
+![Linux FTP Client - Terminal Integration](screenshots/ftp2.png)
+*Integrated terminal and file transfer capabilities*
+
 ## Features
 
 - **Multi-protocol support**: FTP, FTPS, and SFTP
