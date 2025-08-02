@@ -1,0 +1,72 @@
+{
+  "name": "linux-ftp-client",
+  "version": "1.0.0",
+  "description": "A WinSCP-like FTP/SFTP client for Linux with integrated terminal",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:linux": "electron-builder --linux",
+    "dist": "electron-builder --linux appImage",
+    "lint": "eslint src/**/*.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ftp",
+    "sftp",
+    "file-transfer",
+    "terminal",
+    "linux"
+  ],
+  "author": "",
+  "license": "MIT",
+  "build": {
+    "appId": "com.linuxftpclient.app",
+    "productName": "Linux FTP Client",
+    "directories": {
+      "output": "dist"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Network",
+      "icon": "assets/icon.png",
+      "maintainer": "Your Name",
+      "description": "A WinSCP-like FTP/SFTP client for Linux with integrated terminal",
+      "desktop": {
+        "Name": "Linux FTP Client",
+        "Comment": "FTP/SFTP client with terminal",
+        "Categories": "Network;FileTransfer;"
+      }
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}.${ext}",
+      "publish": null
+    },
+    "npmRebuild": false,
+    "buildDependenciesFromSource": false
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "eslint": "^8.56.0"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "basic-ftp": "^5.0.4",
+    "chardet": "^2.1.0",
+    "codemirror": "^5.65.19",
+    "electron-store": "^8.1.0",
+    "iconv-lite": "^0.6.3",
+    "ssh2": "^1.15.0",
+    "uuid": "^9.0.1",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
+  }
+}

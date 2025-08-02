@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self';">
+  <title>Linux FTP Client</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="../../node_modules/xterm/css/xterm.css">
+</head>
+<body>
+  <div id="app">
+    <header class="toolbar">
+      <button id="btn-new-connection" class="toolbar-btn">New Connection</button>
+      <button id="btn-saved-connections" class="toolbar-btn">Saved Connections</button>
+      <button id="btn-bookmarks" class="toolbar-btn">Bookmarks</button>
+      <button id="btn-ssh-keys" class="toolbar-btn">SSH Keys</button>
+      <button id="btn-settings" class="toolbar-btn" title="Transfer Settings">⚙️</button>
+      <button id="btn-sync-directory" class="toolbar-btn" disabled>Sync Directory</button>
+      <button id="btn-disconnect" class="toolbar-btn" disabled>Disconnect</button>
+      <div class="connection-info">
+        <span id="connection-status">Not connected</span>
+      </div>
+    </header>
+    
+    <div class="tab-bar" id="tab-bar">
+      <div class="tabs-container" id="tabs-container"></div>
+      <button id="btn-new-tab" class="new-tab-btn" title="New Tab">+</button>
+    </div>
+
+    <div class="main-container">
+      <div class="file-panels">
+        <div class="panel local-panel">
+          <div class="panel-header">
+            <h3>Local</h3>
+            <div class="path-container">
+              <input type="text" id="local-path" class="path-input" value="/">
+              <button id="btn-bookmark-local" class="bookmark-btn" title="Bookmark this path">★</button>
+            </div>
+            <div class="search-container">
+              <input type="text" id="local-search" class="search-input" placeholder="Search files...">
+              <button id="clear-local-search" class="clear-search-btn">×</button>
+            </div>
+            <div class="filter-sort-container">
+              <button id="btn-local-filter" class="filter-btn" title="Filter files">🔽</button>
+              <select id="local-sort" class="sort-select" title="Sort by">
+                <option value="name">Name</option>
+                <option value="size">Size</option>
+                <option value="date">Date</option>
+              </select>
+              <button id="btn-local-sort-order" class="sort-order-btn" title="Sort order">↓</button>
+            </div>
+          </div>
+          <div class="panel-content">
+            <div id="local-file-list" class="file-list"></div>
+          </div>
+        </div>
+
+        <div class="transfer-controls">
+          <button id="btn-upload" class="transfer-btn" disabled>→</button>
+          <button id="btn-download" class="transfer-btn" disabled>←</button>
+        </div>
+
+        <div class="panel remote-panel">
+          <div class="panel-header">
+            <h3>Remote</h3>
+            <div class="path-container">
+              <input type="text" id="remote-path" class="path-input" value="/" disabled>
+              <button id="btn-bookmark-remote" class="bookmark-btn" title="Bookmark this path" disabled>★</button>
+            </div>
+            <div class="search-container">
+              <input type="text" id="remote-search" class="search-input" placeholder="Search files..." disabled>
+              <button id="clear-remote-search" class="clear-search-btn" disabled>×</button>
+            </div>
+            <div class="filter-sort-container">
+              <button id="btn-remote-filter" class="filter-btn" title="Filter files" disabled>🔽</button>
+              <select id="remote-sort" class="sort-select" title="Sort by" disabled>
+                <option value="name">Name</option>
+                <option value="size">Size</option>
+                <option value="date">Date</option>
+              </select>
+              <button id="btn-remote-sort-order" class="sort-order-btn" title="Sort order" disabled>↓</button>
+            </div>
+          </div>
+          <div class="panel-content">
+            <div id="remote-file-list" class="file-list drop-zone"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-panel-container" id="bottom-panel-container" style="display: none;">
+        <div class="bottom-panel-tabs">
+          <button class="bottom-tab active" data-tab="terminal">Terminal</button>
+          <button class="bottom-tab" data-tab="queue">Transfer Queue <span id="queue-count-badge" class="badge">0</span></button>
+          <button class="bottom-tab" data-tab="log">Activity Log <span id="log-count-badge" class="badge">0</span></button>
+          <div class="bottom-panel-spacer"></div>
+          <button id="btn-close-bottom-panel" class="close-btn">×</button>
+        </div>
+        
+        <div class="bottom-panel-content">
+          <div class="bottom-tab-panel active" id="terminal-panel">
+            <div class="terminal-header">
+              <div class="terminal-controls">
+                <button id="btn-reconnect-terminal" class="terminal-btn" title="Reconnect">↻</button>
+              </div>
+            </div>
+            <div id="terminal"></div>
+          </div>
+          
+          <div class="bottom-tab-panel" id="queue-panel">
+            <div class="queue-header">
+              <div class="queue-controls">
+                <button id="btn-pause-all" class="queue-btn" title="Pause All">⏸</button>
+                <button id="btn-resume-all" class="queue-btn" title="Resume All">▶</button>
+                <button id="btn-clear-completed" class="queue-btn" title="Clear Completed">🗑</button>
+              </div>
+            </div>
+            <div id="queue-list" class="queue-list"></div>
+          </div>
+          
+          <div class="bottom-tab-panel" id="log-panel">
+            <div class="log-header">
+              <div class="log-controls">
+                <button id="btn-clear-log" class="log-btn" title="Clear Log">🗑</button>
+                <button id="btn-export-log" class="log-btn" title="Export Log">💾</button>
+                <select id="log-filter" class="log-filter">
+                  <option value="all">All</option>
+                  <option value="success">Success</option>
+                  <option value="error">Error</option>
+                  <option value="upload">Uploads</option>
+                  <option value="download">Downloads</option>
+                </select>
+              </div>
+            </div>
+            <div id="activity-log" class="activity-log"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span id="status-message">Ready</span>
+      <span id="transfer-status"></span>
+      <button id="btn-show-queue" class="status-btn" style="display: none;">Queue (0)</button>
+    </div>
+  </div>
+
+  <div id="connection-dialog" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h2>New Connection</h2>
+      <div class="quick-connect-section">
+        <label for="quick-connect">Quick Connect:</label>
+        <select id="quick-connect" name="quickConnect">
+          <option value="">-- Select Recent Connection --</option>
+        </select>
+      </div>
+      <div class="form-separator">or enter connection details:</div>
+      <form id="connection-form">
+        <div class="form-group">
+          <label for="protocol">Protocol:</label>
+          <select id="protocol" name="protocol">
+            <option value="ftp">FTP</option>
+            <option value="ftps">FTPS</option>
+            <option value="sftp" selected>SFTP</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="host">Host:</label>
+          <input type="text" id="host" name="host" required>
+        </div>
+        <div class="form-group">
+          <label for="port">Port:</label>
+          <input type="number" id="port" name="port" placeholder="Auto">
+        </div>
+        <div class="form-group">
+          <label for="username">Username:</label>
+          <input type="text" id="username" name="username" required>
+        </div>
+        <div class="form-group">
+          <label for="auth-type">Authentication:</label>
+          <select id="auth-type" name="authType">
+            <option value="password">Password</option>
+            <option value="key">Private Key</option>
+          </select>
+        </div>
+        <div class="form-group" id="password-group">
+          <label for="password">Password:</label>
+          <input type="password" id="password" name="password">
+        </div>
+        <div class="form-group" id="key-group" style="display: none;">
+          <label for="private-key">Private Key:</label>
+          <select id="private-key-select" name="privateKeySelect">
+            <option value="">-- Select a key or enter path manually --</option>
+          </select>
+          <input type="text" id="private-key" name="privateKey" placeholder="/home/user/.ssh/id_rsa" style="margin-top: 5px;">
+        </div>
+        <div class="form-group" id="passphrase-group" style="display: none;">
+          <label for="passphrase">Key Passphrase (if any):</label>
+          <input type="password" id="passphrase" name="passphrase">
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="save-password" name="savePassword">
+            Save credentials
+          </label>
+        </div>
+        <div class="form-group">
+          <label for="profile-name">Save as:</label>
+          <input type="text" id="profile-name" name="profileName" placeholder="Connection name (optional)">
+        </div>
+        <div class="form-actions">
+          <button type="submit">Connect</button>
+          <button type="button" id="btn-test-connection">Test</button>
+          <button type="button" id="btn-cancel-connection">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="saved-connections-dialog" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h2>Saved Connections</h2>
+      <div id="saved-connections-list" class="saved-connections-list"></div>
+      <div class="form-actions">
+        <button type="button" id="btn-close-saved">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="context-menu" class="context-menu" style="display: none;">
+    <div class="context-menu-item" data-action="edit">Edit</div>
+    <div class="context-menu-item" data-action="preview">Preview</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="download">Download</div>
+    <div class="context-menu-item" data-action="upload">Upload</div>
+    <div class="context-menu-item" data-action="download-folder">Download Folder</div>
+    <div class="context-menu-item" data-action="upload-folder">Upload Folder</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="compress-upload">Compress & Upload</div>
+    <div class="context-menu-item" data-action="compress-upload-folder">Compress Folder & Upload</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="rename">Rename</div>
+    <div class="context-menu-item" data-action="delete">Delete</div>
+    <div class="context-menu-item" data-action="permissions">Permissions</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" data-action="refresh">Refresh</div>
+  </div>
+
+  <div id="permissions-dialog" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h2>File Permissions</h2>
+      <div id="permissions-info">
+        <p>File: <span id="perm-filename"></span></p>
+        <p>Current permissions: <span id="perm-current"></span></p>
+      </div>
+      <div class="permissions-grid">
+        <div class="perm-group">
+          <h4>Owner</h4>
+          <label><input type="checkbox" id="owner-read"> Read</label>
+          <label><input type="checkbox" id="owner-write"> Write</label>
+          <label><input type="checkbox" id="owner-execute"> Execute</label>
+        </div>
+        <div class="perm-group">
+          <h4>Group</h4>
+          <label><input type="checkbox" id="group-read"> Read</label>
+          <label><input type="checkbox" id="group-write"> Write</label>
+          <label><input type="checkbox" id="group-execute"> Execute</label>
+        </div>
+        <div class="perm-group">
+          <h4>Others</h4>
+          <label><input type="checkbox" id="other-read"> Read</label>
+          <label><input type="checkbox" id="other-write"> Write</label>
+          <label><input type="checkbox" id="other-execute"> Execute</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="perm-octal">Octal notation:</label>
+        <input type="text" id="perm-octal" maxlength="3" pattern="[0-7]{3}">
+      </div>
+      <div class="form-actions">
+        <button type="button" id="btn-apply-permissions">Apply</button>
+        <button type="button" id="btn-cancel-permissions">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="preview-dialog" class="modal" style="display: none;">
+    <div class="modal-content preview-modal">
+      <div class="preview-header">
+        <h2 id="preview-title">File Preview</h2>
+        <button type="button" id="btn-close-preview" class="close-btn">×</button>
+      </div>
+      <div id="preview-content" class="preview-content">
+        <div id="preview-loading" class="preview-loading">Loading...</div>
+        <img id="preview-image" class="preview-image" style="display: none;">
+        <pre id="preview-text" class="preview-text" style="display: none;"></pre>
+        <div id="preview-error" class="preview-error" style="display: none;">
+          <p>Unable to preview this file</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="bookmarks-dialog" class="modal" style="display: none;">
+    <div class="modal-content bookmarks-modal">
+      <h2>Bookmarks</h2>
+      <div class="bookmarks-container">
+        <div class="bookmarks-section">
+          <h3>Local Bookmarks</h3>
+          <div id="local-bookmarks-list" class="bookmarks-list"></div>
+        </div>
+        <div class="bookmarks-section">
+          <h3>Remote Bookmarks</h3>
+          <div id="remote-bookmarks-list" class="bookmarks-list"></div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="btn-close-bookmarks">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="sync-dialog" class="modal" style="display: none;">
+    <div class="modal-content sync-modal">
+      <h2>Directory Synchronization</h2>
+      <div class="sync-options">
+        <div class="form-group">
+          <label>Local Directory: <span id="sync-local-path"></span></label>
+        </div>
+        <div class="form-group">
+          <label>Remote Directory: <span id="sync-remote-path"></span></label>
+        </div>
+        <div class="form-group">
+          <label>Sync Direction:</label>
+          <select id="sync-direction">
+            <option value="upload">Local → Remote (Upload new/modified files)</option>
+            <option value="download">Remote → Local (Download new/modified files)</option>
+            <option value="bidirectional">Bidirectional (Sync both ways)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="sync-delete-extra" />
+            Delete files that don't exist in source
+          </label>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="sync-overwrite-newer" />
+            Overwrite newer files
+          </label>
+        </div>
+      </div>
+      <div id="sync-preview" class="sync-preview" style="display: none;">
+        <h3>Preview Changes:</h3>
+        <div id="sync-preview-list" class="sync-preview-list"></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="btn-sync-preview">Preview</button>
+        <button type="button" id="btn-sync-execute" style="display: none;">Execute Sync</button>
+        <button type="button" id="btn-cancel-sync">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="filter-menu" class="dropdown-menu" style="display: none;">
+    <div class="filter-section">
+      <h4>File Types</h4>
+      <label><input type="checkbox" class="filter-type" value="all" checked> All Files</label>
+      <label><input type="checkbox" class="filter-type" value="directories"> Directories Only</label>
+      <label><input type="checkbox" class="filter-type" value="files"> Files Only</label>
+    </div>
+    <div class="filter-section">
+      <h4>Extensions</h4>
+      <label><input type="checkbox" class="filter-ext" value="images"> Images (jpg, png, gif)</label>
+      <label><input type="checkbox" class="filter-ext" value="documents"> Documents (txt, pdf, doc)</label>
+      <label><input type="checkbox" class="filter-ext" value="code"> Code (js, py, html, css)</label>
+      <label><input type="checkbox" class="filter-ext" value="archives"> Archives (zip, tar, gz)</label>
+    </div>
+    <div class="filter-section">
+      <h4>Size</h4>
+      <label><input type="radio" name="filter-size" value="all" checked> All Sizes</label>
+      <label><input type="radio" name="filter-size" value="small"> < 1 MB</label>
+      <label><input type="radio" name="filter-size" value="medium"> 1 MB - 10 MB</label>
+      <label><input type="radio" name="filter-size" value="large"> > 10 MB</label>
+    </div>
+    <div class="filter-actions">
+      <button id="btn-apply-filter" class="filter-action-btn">Apply</button>
+      <button id="btn-reset-filter" class="filter-action-btn">Reset</button>
+    </div>
+  </div>
+
+  <div id="shortcuts-dialog" class="modal" style="display: none;">
+    <div class="modal-content shortcuts-modal">
+      <h2>Keyboard Shortcuts</h2>
+      <div class="shortcuts-container">
+        <div class="shortcuts-section">
+          <h3>Navigation</h3>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">F5</span>
+            <span class="shortcut-desc">Refresh directories</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Enter</span>
+            <span class="shortcut-desc">Open selected folder</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Ctrl/Cmd + K</span>
+            <span class="shortcut-desc">Focus search</span>
+          </div>
+        </div>
+        
+        <div class="shortcuts-section">
+          <h3>File Operations</h3>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Delete</span>
+            <span class="shortcut-desc">Delete selected file</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">F2</span>
+            <span class="shortcut-desc">Rename selected file</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Ctrl/Cmd + U</span>
+            <span class="shortcut-desc">Upload selected file</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Ctrl/Cmd + Shift + D</span>
+            <span class="shortcut-desc">Download selected file</span>
+          </div>
+        </div>
+        
+        <div class="shortcuts-section">
+          <h3>Tabs</h3>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Ctrl/Cmd + T</span>
+            <span class="shortcut-desc">New tab</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Ctrl/Cmd + W</span>
+            <span class="shortcut-desc">Close tab</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Ctrl/Cmd + Tab</span>
+            <span class="shortcut-desc">Next tab</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Ctrl/Cmd + Shift + Tab</span>
+            <span class="shortcut-desc">Previous tab</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Ctrl/Cmd + 1-9</span>
+            <span class="shortcut-desc">Switch to specific tab</span>
+          </div>
+        </div>
+        
+        <div class="shortcuts-section">
+          <h3>Windows</h3>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Ctrl/Cmd + D</span>
+            <span class="shortcut-desc">Toggle bookmarks</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Ctrl/Cmd + Q</span>
+            <span class="shortcut-desc">Toggle transfer queue</span>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-keys">Escape</span>
+            <span class="shortcut-desc">Close dialog</span>
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="btn-close-shortcuts">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="ssh-keys-dialog" class="modal" style="display: none;">
+    <div class="modal-content ssh-keys-modal">
+      <h2>SSH Key Management</h2>
+      <div class="ssh-keys-container">
+        <div class="ssh-keys-section">
+          <h3>Generate New Key</h3>
+          <form id="generate-key-form">
+            <div class="form-group">
+              <label for="key-name">Key Name:</label>
+              <input type="text" id="key-name" placeholder="my-ssh-key" required>
+            </div>
+            <div class="form-group">
+              <label for="key-type">Key Type:</label>
+              <select id="key-type">
+                <option value="rsa">RSA (2048 bit)</option>
+                <option value="rsa-4096">RSA (4096 bit)</option>
+                <option value="ed25519" selected>Ed25519 (recommended)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="key-passphrase">Passphrase (optional):</label>
+              <input type="password" id="key-passphrase" placeholder="Enter passphrase for additional security">
+            </div>
+            <div class="form-group">
+              <label for="key-comment">Comment:</label>
+              <input type="text" id="key-comment" placeholder="user@hostname">
+            </div>
+            <button type="submit" class="generate-key-btn">Generate Key</button>
+          </form>
+        </div>
+        
+        <div class="ssh-keys-section">
+          <h3>Existing Keys</h3>
+          <div id="ssh-keys-list" class="ssh-keys-list"></div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="btn-close-ssh-keys">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-dialog" class="modal" style="display: none;">
+    <div class="modal-content settings-modal">
+      <h2>Transfer Settings</h2>
+      <div class="settings-tabs">
+        <button class="settings-tab active" data-tab="general">General</button>
+        <button class="settings-tab" data-tab="compression">Compression</button>
+        <button class="settings-tab" data-tab="speed-limits">Speed Limits</button>
+        <button class="settings-tab" data-tab="appearance">Appearance</button>
+      </div>
+      
+      <div class="settings-tab-content">
+        <div class="settings-panel active" id="general-panel">
+          <div class="general-settings">
+            <h3>General Transfer Settings</h3>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="preserve-timestamps" checked>
+                Preserve file timestamps
+              </label>
+              <p class="setting-description">Maintain original file modification times during transfers</p>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="overwrite-existing" checked>
+                Overwrite existing files
+              </label>
+              <p class="setting-description">Replace files if they already exist at the destination</p>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="follow-symlinks">
+                Follow symbolic links
+              </label>
+              <p class="setting-description">Transfer the target of symbolic links instead of the link itself</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="settings-panel" id="compression-panel">
+          <div class="compression-settings">
+            <h3>File Compression Settings</h3>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="auto-compress-files" checked>
+                Automatically compress files before upload
+              </label>
+              <p class="setting-description">Compress individual files using gzip to reduce transfer size</p>
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="auto-compress-folders" checked>
+                Automatically compress folders before upload
+              </label>
+              <p class="setting-description">Compress folders into tar.gz archives before uploading</p>
+            </div>
+            <div class="form-group">
+              <label for="compression-threshold">Minimum file size for compression:</label>
+              <div class="size-input-group">
+                <input type="number" id="compression-threshold" value="1" min="0">
+                <select id="compression-threshold-unit">
+                  <option value="KB">KB</option>
+                  <option value="MB" selected>MB</option>
+                  <option value="GB">GB</option>
+                </select>
+              </div>
+              <p class="setting-description">Files smaller than this size won't be compressed</p>
+            </div>
+            <div class="form-group">
+              <label>Exclude file types from compression:</label>
+              <input type="text" id="compression-exclude" placeholder="jpg, png, zip, mp4" value="jpg, jpeg, png, gif, zip, rar, 7z, mp3, mp4, avi">
+              <p class="setting-description">Already compressed file types to skip (comma-separated)</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="settings-panel" id="speed-limits-panel">
+          <div class="speed-limit-container">
+        <div class="speed-limit-section">
+          <h3>Global Limits</h3>
+          <div class="form-group">
+            <label for="global-upload-limit">Upload Speed Limit:</label>
+            <div class="speed-input-group">
+              <input type="number" id="global-upload-limit" min="0" placeholder="Unlimited">
+              <select id="global-upload-unit">
+                <option value="KB/s">KB/s</option>
+                <option value="MB/s">MB/s</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="global-download-limit">Download Speed Limit:</label>
+            <div class="speed-input-group">
+              <input type="number" id="global-download-limit" min="0" placeholder="Unlimited">
+              <select id="global-download-unit">
+                <option value="KB/s">KB/s</option>
+                <option value="MB/s">MB/s</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <div class="speed-limit-section">
+          <h3>Current Connection Limits</h3>
+          <div class="form-group">
+            <label for="connection-upload-limit">Upload Speed Limit:</label>
+            <div class="speed-input-group">
+              <input type="number" id="connection-upload-limit" min="0" placeholder="Unlimited">
+              <select id="connection-upload-unit">
+                <option value="KB/s">KB/s</option>
+                <option value="MB/s">MB/s</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="connection-download-limit">Download Speed Limit:</label>
+            <div class="speed-input-group">
+              <input type="number" id="connection-download-limit" min="0" placeholder="Unlimited">
+              <select id="connection-download-unit">
+                <option value="KB/s">KB/s</option>
+                <option value="MB/s">MB/s</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+        </div>
+        
+        <div class="settings-panel" id="appearance-panel">
+          <div class="appearance-settings">
+            <h3>Theme Settings</h3>
+            <div class="form-group">
+              <label for="theme-select">Color Theme:</label>
+              <select id="theme-select">
+                <option value="dark">Dark (Default)</option>
+                <option value="light">Light</option>
+                <option value="blue">Midnight Blue</option>
+                <option value="monokai">Monokai</option>
+                <option value="solarized-dark">Solarized Dark</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="font-family">Font Family:</label>
+              <select id="font-family">
+                <option value="default">System Default</option>
+                <option value="monospace">Monospace</option>
+                <option value="consolas">Consolas</option>
+                <option value="monaco">Monaco</option>
+                <option value="fira-code">Fira Code</option>
+                <option value="jetbrains">JetBrains Mono</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="font-size">Font Size:</label>
+              <div class="size-input-group">
+                <input type="range" id="font-size" min="10" max="20" value="13" step="1">
+                <span id="font-size-value">13px</span>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="show-hidden-files" checked>
+                Show hidden files (starting with .)
+              </label>
+            </div>
+            
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="compact-mode">
+                Compact mode (smaller spacing)
+              </label>
+            </div>
+            
+            <div id="custom-theme-settings" style="display: none;">
+              <h4>Custom Theme Colors</h4>
+              <div class="color-grid">
+                <div class="color-group">
+                  <label for="color-bg">Background:</label>
+                  <input type="color" id="color-bg" value="#1e1e1e">
+                </div>
+                <div class="color-group">
+                  <label for="color-fg">Text:</label>
+                  <input type="color" id="color-fg" value="#d4d4d4">
+                </div>
+                <div class="color-group">
+                  <label for="color-accent">Accent:</label>
+                  <input type="color" id="color-accent" value="#00bfff">
+                </div>
+                <div class="color-group">
+                  <label for="color-hover">Hover:</label>
+                  <input type="color" id="color-hover" value="#2a2a2a">
+                </div>
+                <div class="color-group">
+                  <label for="color-border">Border:</label>
+                  <input type="color" id="color-border" value="#3a3a3a">
+                </div>
+                <div class="color-group">
+                  <label for="color-success">Success:</label>
+                  <input type="color" id="color-success" value="#4caf50">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="form-actions">
+        <button type="button" id="btn-apply-settings">Apply</button>
+        <button type="button" id="btn-close-settings">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Code Editor Dialog -->
+  <div id="editor-dialog" style="display: none;">
+    <div class="editor-modal">
+      <div class="editor-header">
+        <div class="editor-title">
+          <span id="editor-filename"></span>
+          <span id="editor-modified" style="display: none;">●</span>
+        </div>
+        <div class="editor-path" id="editor-path"></div>
+        <div class="editor-controls">
+          <select id="editor-encoding" title="File Encoding">
+            <option value="utf8">UTF-8</option>
+            <option value="utf16le">UTF-16 LE</option>
+            <option value="utf16be">UTF-16 BE</option>
+            <option value="latin1">ISO-8859-1</option>
+            <option value="windows1252">Windows-1252</option>
+            <option value="ascii">ASCII</option>
+            <option value="gb18030">GB18030</option>
+            <option value="shift_jis">Shift JIS</option>
+            <option value="euc-jp">EUC-JP</option>
+            <option value="euc-kr">EUC-KR</option>
+            <option value="big5">Big5</option>
+          </select>
+          <select id="editor-mode" title="Syntax Highlighting">
+            <option value="text/plain">Plain Text</option>
+            <option value="javascript">JavaScript</option>
+            <option value="python">Python</option>
+            <option value="xml">XML</option>
+            <option value="htmlmixed">HTML</option>
+            <option value="css">CSS</option>
+            <option value="php">PHP</option>
+            <option value="sql">SQL</option>
+            <option value="markdown">Markdown</option>
+            <option value="yaml">YAML</option>
+            <option value="shell">Shell</option>
+            <option value="text/x-java">Java</option>
+            <option value="text/x-csrc">C</option>
+            <option value="text/x-c++src">C++</option>
+            <option value="text/x-csharp">C#</option>
+            <option value="rust">Rust</option>
+            <option value="text/x-go">Go</option>
+          </select>
+          <button id="btn-editor-save" title="Save (Ctrl+S)">💾 Save</button>
+          <button id="btn-editor-reload" title="Reload File">🔄 Reload</button>
+          <button id="btn-editor-minimize" title="Minimize">─</button>
+          <button id="btn-editor-maximize" title="Maximize">□</button>
+          <button id="btn-editor-close" title="Close Editor">✕</button>
+        </div>
+      </div>
+      <div class="editor-container">
+        <textarea id="editor-textarea"></textarea>
+      </div>
+      <div id="editor-status" class="editor-status" style="display: none;"></div>
+    </div>
+  </div>
+  
+  <!-- Editor Taskbar -->
+  <div id="editor-taskbar" class="editor-taskbar">
+    <div id="taskbar-items"></div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

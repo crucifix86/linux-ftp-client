@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+.env
+.env.local
+.vscode/
+.idea/
+*.AppImage
+linux-unpacked/
+*.asar
+appimagetool-*.AppImage
+AppRun-fuse3
+build-*.sh
+create-*.sh
